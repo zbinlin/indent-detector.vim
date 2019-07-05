@@ -8,6 +8,38 @@ if exists("g:loaded_indent_detector")
 endif
 let g:loaded_indent_detector = 1
 
+function MaxCounting(lst) abort
+    let counting = {}
+    for item in a:lst
+        let counting[item] = get(counting, item, 1) + 1
+    endfor
+    let result = 0
+    let maximum = 0
+    for [key, value] in items(counting)
+        if value > maximum
+            let maximum = value
+            let result = key
+        endif
+    endfor
+    return result
+endfunction
+
+function CountChar(line, char) abort
+    let cnt = 0
+    let len = strlen(a:line)
+    let idx = 0
+    while idx < len
+        let ch = a:line[idx]
+        if ch == a:char
+            let cnt += 1
+        else
+            break
+        endif
+        let idx += 1
+    endwhile
+    return cnt
+endfunction
+
 function DetectIndent() abort
     let last = line("$")
     let rows = winheight(0)
@@ -15,65 +47,75 @@ function DetectIndent() abort
         let rows = last
     endif
 
-    let idx = 0
+    let prev = 0
     let tab_score = 0
     let space_score = 0
-    let space_count = -1
-    let start_count = v:false
+    let score_threshold = min([max([2, rows / 2]), 8])
+    let spaces = []
+
+    let idx = 0
     while idx < last
         let lines = getline(idx, idx + rows)
         let idx += rows
+
         for line in lines
-            if line[0] != '\t' && line[0] != ' '
-                if tab_score > space_score
-                    return -1
-                elseif tab_score < space_score
-                    return space_count
-                endif
-                let start_count = v:false
-                continue
-            endif
-            if !start_count
-                let start_count = v:true
-                let tab_score = 0
-                let space_score = 0
-            endif
-
-            if line[0] == '\t'
-                let tab_score += 1
-                let space_score -= 1
-                continue
-            endif
-
-            let cnt = 0
-            let len = strlen(line)
-            let iidx = 0
-            while iidx < len
-                let ch = line[iidx]
-                if ch == ' '
-                    let cnt += 1
+            let ch = line[0]
+            if prev == 0
+                if ch == '\t'
+                    let cnt = CountChar(line, ch)
+                    if cnt == 1
+                        let prev = -1
+                        let tab_score += 1
+                    else
+                        let prev = -2
+                    endif
+                elseif ch == ' '
+                    let cnt = CountChar(line, ch)
+                    if cnt == 2 || cnt == 4 || cnt == 8
+                        let prev = 1
+                        let space_score += 1
+                        call add(spaces, cnt)
+                    else
+                        let prev = 2
+                    endif
                 else
-                    break
+                    let prev = 0
                 endif
-                let iidx += 1
-            endwhile
-
-            if cnt % 8 == 0
-                let space_count = 8
-            elseif cnt % 4 == 0
-                let space_count = 4
-            elseif cnt % 2 == 0
-                let space_count = 2
-            endif
-
-            if cnt % 2 == 0
-                let space_score += 1
-                let tab_score -= 1
+            elseif prev == -1
+                if ch == '\t'
+                    let tab_score += 1
+                elseif ch == ' '
+                    let prev = 2
+                else
+                    let prev = 0
+                endif
+            elseif prev == 1
+                if ch == '\t'
+                    let prev = 2
+                elseif ch == ' '
+                    let space_score += 1
+                else
+                    let prev = 0
+                endif
             endif
         endfor
+
+        if abs(space_score - tab_score) > score_threshold
+            if space_score > tab_score
+                return MaxCounting(spaces)
+            else
+                return -1
+            endif
+        endif
     endwhile
 
-    return space_count
+    if space_score == tab_score && space_score == 0
+        return 0
+    elseif space_score > tab_score
+        return MaxCounting(spaces)
+    else
+        return -1
+    endif
 endfunction
 
 function CheckModeline() abort
@@ -82,13 +124,16 @@ endfunction
 
 function AutoSetExpandTab() abort
     if CheckModeline()
-        echom "[indent-detector]: uses modeline options."
+        "echom "[indent-detector]: uses modeline options."
         return
     endif
 
     let val = DetectIndent()
-    if val == -1
-        echom "[indent-detector]: uses tab indent."
+    if val == 0
+        "echom "[indent-detector]: undetected tab or space."
+        return
+    elseif val == -1
+        "echom "[indent-detector]: uses tab indent."
         return
     endif
 
