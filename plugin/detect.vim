@@ -88,6 +88,8 @@ function DetectIndent() abort
                     let tab_score += 1
                 elseif ch == ' '
                     let prev = 2
+                elseif ch == ''
+                    " ignore
                 else
                     let prev = 0
                 endif
@@ -96,6 +98,8 @@ function DetectIndent() abort
                     let prev = 2
                 elseif ch == ' '
                     let space_score += 1
+                elseif ch == ''
+                    " ignore
                 else
                     let prev = 0
                 endif
