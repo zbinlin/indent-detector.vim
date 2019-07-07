@@ -52,9 +52,11 @@ function DetectIndent() abort
     let space_score = 0
     let score_threshold = min([max([2, rows / 2]), 8])
     let spaces = []
+    let line_threshold = 1024
 
     let idx = 0
-    while idx < last
+    let max_lines = min([line_threshold, last])
+    while idx < max_lines
         let lines = getline(idx, idx + rows)
         let idx += rows
 
