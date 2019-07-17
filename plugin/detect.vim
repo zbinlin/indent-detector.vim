@@ -112,6 +112,14 @@ function! s:DetectIndent() abort
                 else
                     let prev_indent = s:NOT_INDENT
                 endif
+            elseif prev_indent == s:UNKNOWN_INDENT
+                if ch == s:TAB
+                    " ignore
+                elseif ch == s:SPACE
+                    " ignore
+                else
+                    let prev_indent = s:NOT_INDENT
+                endif
             endif
         endfor
 
@@ -124,8 +132,17 @@ function! s:DetectIndent() abort
         endif
     endwhile
 
-    if space_score == tab_score && space_score == 0
-        return 0
+    if space_score == tab_score
+        if space_score == 0
+            return 0
+        else
+            let space = s:MaxCounting(spaces)
+            if count(spaces, space) > tab_score
+                return space
+            else
+                return -1
+            endif
+        endif
     elseif space_score > tab_score
         return s:MaxCounting(spaces)
     else
@@ -151,6 +168,7 @@ function! s:AutoSetExpandTab() abort
         "echom "[indent-detector]: uses tab indent."
         setlocal noexpandtab
     else
+        "echom "[indent-detector]: set expandtab and tabstop=" . val
         setlocal expandtab
         execute("setlocal tabstop=" . val)
     endif
