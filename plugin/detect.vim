@@ -170,6 +170,7 @@ function! s:AutoSetExpandTab() abort
     else
         "echom "[indent-detector]: set expandtab and tabstop=" . val
         setlocal expandtab
+        setlocal shiftwidth=0
         execute("setlocal tabstop=" . val)
     endif
 endfunction
